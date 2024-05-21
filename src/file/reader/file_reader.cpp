@@ -93,8 +93,6 @@ bool FileReader::readWaveforms(QVector<device::WaveformPacket> &waveform)
 
     uint32_t valid_packages = validator->validPacketNumber();
 
-    qDebug() << valid_packages;
-
     for (uint32_t index = 0; index < valid_packages; ++index)
     {
         QByteArray buffer;

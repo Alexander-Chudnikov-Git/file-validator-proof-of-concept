@@ -16,24 +16,35 @@ public:
     {
         None,
         UnableToOpen,
-        MissingHeaderSignature,
+        InvalidSignature,
         WrongHeaderHash,
         MalformedWaveformPacket,
         WrongWaveformPacket,
+        ReadError
     };
     Q_DECLARE_FLAGS(ValidationErrors, ValidationError)
 
     explicit FileValidator(QObject *parent = nullptr);
     explicit FileValidator(const QString &filename, QObject *parent = nullptr);
+
     ~FileValidator();
 
-    ValidationError errors() const;
+    void initialize(const QString &filename);
 
     ValidationError validateFile();
 
+    ValidationError errors() const;
     uint32_t settingsNumber() const;
     uint32_t validPacketNumber() const;
 
+    void close();
+
+private:
+    bool validateSignature();
+    bool validateSettings();
+    bool validateWaveformPackets();
+
+public:
     friend std::ostream& operator<<(std::ostream& os, const FileValidator::ValidationError& error)
     {
         switch (error)
@@ -44,8 +55,8 @@ public:
         case FileValidator::ValidationError::UnableToOpen:
             os << "UnableToOpen";
             break;
-        case FileValidator::ValidationError::MissingHeaderSignature:
-            os << "MissingHeaderSignature";
+        case FileValidator::ValidationError::InvalidSignature:
+            os << "InvalidSignature";
             break;
         case FileValidator::ValidationError::WrongHeaderHash:
             os << "WrongHeaderHash";
@@ -56,6 +67,9 @@ public:
         case FileValidator::ValidationError::WrongWaveformPacket:
             os << "WrongWaveformPacket";
             break;
+        case FileValidator::ValidationError::ReadError:
+            os << "ReadError";
+            break;
         default:
             os << "Unknown";
             break;
@@ -64,10 +78,6 @@ public:
         return os;
     }
 
-    void close();
-
-private:
-    void initialize(const QString &filename);
 
 private:
     QFile *file;
