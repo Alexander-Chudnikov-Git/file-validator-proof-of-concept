@@ -26,6 +26,7 @@ FileReader::~FileReader()
 
 bool FileReader::initialize(const QString &filename)
 {
+    std::cout << "Validation start" << std::endl;
     validator = new FileValidator(filename);
 
     if (validator->validateFile() != FileValidator::ValidationError::None)
@@ -35,6 +36,8 @@ bool FileReader::initialize(const QString &filename)
         return false;
     }
     validator->close();
+
+    std::cout << "Validation done" << std::endl;
 
     file = new QFile(filename);
 

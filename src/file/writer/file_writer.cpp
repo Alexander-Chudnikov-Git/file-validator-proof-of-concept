@@ -49,6 +49,9 @@ void FileWriter::write(const QVector<device::DevicePSDSettings> &settings_array)
 
     file->write(buffer);
     file->write(hash);
+
+    qDebug() << hash;
+    qDebug() << file->size();
 }
 
 
@@ -59,6 +62,7 @@ void FileWriter::write(const QVector<device::WaveformPacket> &waveform_array)
         qWarning() << "File is not open for writing.";
         return;
     }
+    qDebug() << file->size();
 
     for (const auto& waveform : waveform_array)
     {
@@ -70,12 +74,11 @@ void FileWriter::write(const QVector<device::WaveformPacket> &waveform_array)
             qWarning() << "Invalid settings array size.";
             return;
         }
-
-        out << QByteArray::fromHex(default_body_prefix.toUtf8());
+        out.writeRawData(default_body_prefix, 4);
 
         out << waveform;
 
-        out << QByteArray::fromHex(default_body_postfix.toUtf8());
+        out.writeRawData(default_body_prefix, 4);
 
         //QByteArray hash = QCryptographicHash::hash(buffer, QCryptographicHash::Sha256);
 

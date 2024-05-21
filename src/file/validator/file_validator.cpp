@@ -66,13 +66,46 @@ FileValidator::ValidationError FileValidator::validateFile()
     auto expected_hash = QCryptographicHash::hash(settings_bytes + settings, QCryptographicHash::Md5);
     auto settings_hash = file->read(16);
 
-    if (settings_hash == expected_hash)
+    if (settings_hash != expected_hash)
     {
-        qWarning() << "Wrong setting hash: \nexpected: " << expected_hash << " in file: " << settings_hash;
+        qWarning() << "Wrong setting hash: \nexpected: " << expected_hash.toHex() << " in file: " << settings_hash.toHex();
         error = ValidationError::WrongHeaderHash;
         close();
         return error;
     }
+
+    uint32_t number_of_waveform_packets = 0;
+
+    do
+    {
+        auto waveform_prefix = file->read(4);
+
+        if (waveform_prefix != default_body_prefix)
+        {
+            qWarning() << "Wrong waveform prefix: \nexpected: " << default_body_prefix.toHex() << " in file: " << waveform_prefix.toHex();
+            qWarning() << "Found " << number_of_waveform_packets << " valid packets.";
+            error = ValidationError::MalformedWaveformPacket;
+            valid_packets = number_of_waveform_packets;
+            break;
+        }
+
+        auto waveform_values_bytes = file->read(4);
+        auto waveform_number_of_values = waveform_values_bytes.toHex().toUInt(nullptr, 16);
+
+        qDebug() << waveform_number_of_values << " " << waveform_values_bytes;
+        file->seek(file->pos() + 4 + (waveform_number_of_values * 2));
+
+        auto waveform_postfix = file->read(4);
+        if (waveform_postfix != default_body_prefix)
+        {
+            qWarning() << "Wrong waveform postfix: \nexpected: " << default_body_prefix.toHex() << " in file: " << waveform_postfix.toHex();
+            qWarning() << "Found " << number_of_waveform_packets << " valid packets.";
+            error = ValidationError::MalformedWaveformPacket;
+            valid_packets = number_of_waveform_packets;
+            break;
+        }
+    }
+    while (file->atEnd());
 
     close();
     return error;
@@ -82,6 +115,12 @@ FileValidator::ValidationError FileValidator::validateFile()
 FileValidator::ValidationError FileValidator::errors() const
 {
     return error;
+}
+
+
+uint32_t FileValidator::validPacketNumber() const
+{
+    return valid_packets;
 }
 
 void FileValidator::close()

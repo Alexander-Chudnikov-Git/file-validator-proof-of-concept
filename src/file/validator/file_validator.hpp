@@ -34,6 +34,8 @@ public:
 
     ValidationError validateFile();
 
+    uint32_t validPacketNumber() const;
+
     friend std::ostream& operator<<(std::ostream& os, const FileValidator::ValidationError& error)
     {
         switch (error)
@@ -71,6 +73,7 @@ private:
 private:
     QFile *file;
     ValidationError error{ValidationError::None};
+    uint32_t valid_packets;
 };
 Q_DECLARE_OPERATORS_FOR_FLAGS(FileValidator::ValidationErrors)
 
