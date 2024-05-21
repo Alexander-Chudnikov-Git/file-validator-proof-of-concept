@@ -61,8 +61,9 @@ FileValidator::ValidationError FileValidator::validateFile()
     }
 
     auto settings_bytes = file->read(2);
-    auto settings_number = settings_bytes.toHex().toUInt(nullptr, 16);
-    auto settings = file->read(settings_number * 46); // 368 bits X size of the settngs
+    auto number_of_settings = settings_bytes.toHex().toUInt(nullptr, 16);
+    settings_number = number_of_settings;
+    auto settings = file->read(number_of_settings * 46); // 368 bits X size of the settngs
     auto expected_hash = QCryptographicHash::hash(settings_bytes + settings, QCryptographicHash::Md5);
     auto settings_hash = file->read(16);
 
@@ -85,14 +86,12 @@ FileValidator::ValidationError FileValidator::validateFile()
             qWarning() << "Wrong waveform prefix: \nexpected: " << default_body_prefix.toHex() << " in file: " << waveform_prefix.toHex();
             qWarning() << "Found " << number_of_waveform_packets << " valid packets.";
             error = ValidationError::MalformedWaveformPacket;
-            valid_packets = number_of_waveform_packets;
             break;
         }
 
         auto waveform_values_bytes = file->read(4);
         auto waveform_number_of_values = waveform_values_bytes.toHex().toUInt(nullptr, 16);
 
-        qDebug() << waveform_number_of_values << " " << waveform_values_bytes;
         file->seek(file->pos() + 4 + (waveform_number_of_values * 2));
 
         auto waveform_postfix = file->read(4);
@@ -101,11 +100,14 @@ FileValidator::ValidationError FileValidator::validateFile()
             qWarning() << "Wrong waveform postfix: \nexpected: " << default_body_prefix.toHex() << " in file: " << waveform_postfix.toHex();
             qWarning() << "Found " << number_of_waveform_packets << " valid packets.";
             error = ValidationError::MalformedWaveformPacket;
-            valid_packets = number_of_waveform_packets;
             break;
         }
+        number_of_waveform_packets += 1;
     }
-    while (file->atEnd());
+    while (!file->atEnd());
+
+
+    valid_packets = number_of_waveform_packets;
 
     close();
     return error;
@@ -117,6 +119,11 @@ FileValidator::ValidationError FileValidator::errors() const
     return error;
 }
 
+
+uint32_t FileValidator::settingsNumber() const
+{
+    return settings_number;
+}
 
 uint32_t FileValidator::validPacketNumber() const
 {

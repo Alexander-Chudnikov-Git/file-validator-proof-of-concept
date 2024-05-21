@@ -1,9 +1,6 @@
 #ifndef FILE_VALIDATOR_HPP
 #define FILE_VALIDATOR_HPP
 
-#include "header_structure.hpp"
-#include "packet_structure.hpp"
-
 #include <QString>
 #include <QByteArray>
 #include <QObject>
@@ -34,6 +31,7 @@ public:
 
     ValidationError validateFile();
 
+    uint32_t settingsNumber() const;
     uint32_t validPacketNumber() const;
 
     friend std::ostream& operator<<(std::ostream& os, const FileValidator::ValidationError& error)
@@ -62,6 +60,7 @@ public:
             os << "Unknown";
             break;
         }
+        os << "\n";
         return os;
     }
 
@@ -73,6 +72,8 @@ private:
 private:
     QFile *file;
     ValidationError error{ValidationError::None};
+
+    uint16_t settings_number;
     uint32_t valid_packets;
 };
 Q_DECLARE_OPERATORS_FOR_FLAGS(FileValidator::ValidationErrors)

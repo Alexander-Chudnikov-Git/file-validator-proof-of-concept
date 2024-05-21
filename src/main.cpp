@@ -9,8 +9,8 @@
 
 #include <iostream>
 
-#define WAVEFORM_MIN_VALUES 10000
-#define WAVEFORM_MAX_VALUES 1000000
+#define WAVEFORM_MIN_VALUES 1
+#define WAVEFORM_MAX_VALUES 10
 
 device::DevicePSDSettings generate_random_settings(int i)
 {
@@ -67,7 +67,7 @@ void clear_directory()
     {
         if(!directory.remove(fileName))
         {
-            qDebug() << "Failed to remove file:" << fileName;
+            qWarning() << "Failed to remove file:" << fileName;
         }
     }
 
@@ -183,6 +183,9 @@ int main(int argc, char *argv[])
     else
     {
         std::cout << "Header differ" << std::endl;
+
+        std::cout << settings_read[0];
+        std::cout << settings[0];
     }
 
     if (waveforms_read == waveforms)
@@ -192,6 +195,9 @@ int main(int argc, char *argv[])
     else
     {
         std::cout << "Waveform differ" << std::endl;
+
+        std::cout << waveforms_read[0];
+        std::cout << waveforms[0];
     }
     reader.close();
 

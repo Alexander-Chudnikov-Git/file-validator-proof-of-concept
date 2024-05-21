@@ -49,9 +49,6 @@ void FileWriter::write(const QVector<device::DevicePSDSettings> &settings_array)
 
     file->write(buffer);
     file->write(hash);
-
-    qDebug() << hash;
-    qDebug() << file->size();
 }
 
 
@@ -62,7 +59,6 @@ void FileWriter::write(const QVector<device::WaveformPacket> &waveform_array)
         qWarning() << "File is not open for writing.";
         return;
     }
-    qDebug() << file->size();
 
     for (const auto& waveform : waveform_array)
     {

@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QDataStream>
 
+#include <iostream>
 
 namespace device
 {
@@ -36,9 +37,11 @@ struct WaveformPacket
         s >> value.baseline;
         s >> value.chanelId;
 
-        for (auto val : value.values)
+        value.values.resize(value.nubmerOfValues);
+
+        for (uint32_t index = 0; index < value.nubmerOfValues; ++index)
         {
-            s >> val;
+            s >> value.values[index];
         }
 
         return s;
@@ -66,6 +69,20 @@ struct WaveformPacket
     bool operator!=(const WaveformPacket &other) const
     {
         return !(*this == other);
+    }
+
+    friend std::ostream& operator<<(std::ostream& os, const WaveformPacket &value)
+    {
+        os << "Number Of Values: " << value.nubmerOfValues << "\n";
+        os << "Baseline: " << value.baseline << "\n";
+        os << "Channel Id: " << value.chanelId << "\n";
+
+        for (auto val : value.values)
+        {
+            os << "Val: " << val << "\n";
+        }
+
+        return os;
     }
 };
 

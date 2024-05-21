@@ -138,6 +138,35 @@ struct DevicePSDSettings
     {
         return !(*this == other);
     }
+
+    friend std::ostream& operator<<(std::ostream& os, const DevicePSDSettings& value)
+    {
+        os << "Channel ID: " << value.channelId << "\n";
+        os << "PSD Wave Length: " << value.psdWaveLength << "\n";
+
+        os << "PSD Pre Trigger: " << value.psdPreTriggerLength << "\n";
+        os << "Trigger Hold Off: " << value.triggerHoldOff << "\n";
+
+        os << "PSD Pre Gate: " << value.psdPreGateLength << "\n";
+        os << "PSD Short Gate: " << value.psdShortGateLength << "\n";
+        os << "PSD Long Gate: " << value.psdLongGateLength << "\n";
+
+        os << "Filter Type: " << static_cast<int>(value.filterType) << "\n";
+
+        if (value.filterType == TTFilterType::LED)
+        {
+            os << "Led Threshold Up: " << value.ledSettings.ledThresholdUp << "\n";
+            os << "Led Threshold Down: " << value.ledSettings.ledThresholdDown << "\n";
+        }
+        else if (value.filterType == TTFilterType::CFD)
+        {
+            os << "CFD Delay: " << value.cfdSettings.cfdDelay << "\n";
+            os << "CFD Threshold: " << value.cfdSettings.cfdThreshold << "\n";
+            os << "CFD Fraction: " << value.cfdSettings.cfdFraction << "\n";
+        }
+
+        return os;
+    }
 };
 
 } // namespace device

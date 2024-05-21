@@ -1,5 +1,4 @@
 #include "file_reader.hpp"
-#include "validation_defines.hpp"
 
 #include <QByteArray>
 #include <QDataStream>
@@ -7,7 +6,6 @@
 #include <QFile>
 #include <QDebug>
 
-#include <iostream>
 
 FileReader::FileReader(QObject *parent) : QObject(parent)
 {
@@ -26,7 +24,6 @@ FileReader::~FileReader()
 
 bool FileReader::initialize(const QString &filename)
 {
-    std::cout << "Validation start" << std::endl;
     validator = new FileValidator(filename);
 
     if (validator->validateFile() != FileValidator::ValidationError::None)
@@ -36,8 +33,6 @@ bool FileReader::initialize(const QString &filename)
         return false;
     }
     validator->close();
-
-    std::cout << "Validation done" << std::endl;
 
     file = new QFile(filename);
 
@@ -64,22 +59,28 @@ bool FileReader::readSettings(QVector<device::DevicePSDSettings> &settings)
     }
 
     QDataStream in(file);
-    quint16 settingsSize;
-    in >> settingsSize;
+    in.skipRawData(10);
 
-    for (quint16 i = 0; i < settingsSize; ++i)
+    uint16_t settings_size = validator->settingsNumber();
+
+    for (uint16_t index = 0; index < settings_size; ++index)
     {
         device::DevicePSDSettings settings_temp;
-        in >> settings;
+        in >> settings_temp;
         settings.append(settings_temp);
     }
+
+    file->seek(10 + (settings_size * 46) + 16); // 10 - 64 bits for signature + 16 bist for settings size
+                                                // (settings_size * 46) settings offset
+                                                // 16 - 128 bits md 5 hash
 
     return true;
 }
 
 bool FileReader::readWaveforms(QVector<device::WaveformPacket> &waveform)
 {
-    if (checkErrors() != FileValidator::ValidationError::None)
+    auto error = checkErrors();
+    if (error != FileValidator::ValidationError::None && error != FileValidator::ValidationError::MalformedWaveformPacket)
     {
         return false;
     }
@@ -90,20 +91,23 @@ bool FileReader::readWaveforms(QVector<device::WaveformPacket> &waveform)
         return false;
     }
 
-    while (!file->atEnd())
+    uint32_t valid_packages = validator->validPacketNumber();
+
+    qDebug() << valid_packages;
+
+    for (uint32_t index = 0; index < valid_packages; ++index)
     {
-        // Add packet validation
         QByteArray buffer;
         QDataStream in(file);
 
-        QByteArray prefix;
-        in >> prefix;
+        buffer.resize(4);
+        in.readRawData(buffer.data(), 4);
 
         device::WaveformPacket waveform_temp;
         in >> waveform_temp;
 
-        QByteArray postfix;
-        in >> postfix;
+        buffer.resize(4);
+        in.readRawData(buffer.data(), 4);
 
         waveform.append(waveform_temp);
     }
