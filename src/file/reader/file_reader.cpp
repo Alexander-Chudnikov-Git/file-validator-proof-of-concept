@@ -3,15 +3,14 @@
 #include <QByteArray>
 #include <QDataStream>
 #include <QCryptographicHash>
-#include <QFile>
 #include <QDebug>
 
 
-FileReader::FileReader(QObject *parent) : QObject(parent)
+FileReader::FileReader(QObject *parent) : QObject(parent), file(nullptr), validator(nullptr)
 {
 }
 
-FileReader::FileReader(const QString &filename, QObject *parent) : QObject(parent)
+FileReader::FileReader(const QString &filename, QObject *parent) : QObject(parent), file(nullptr), validator(nullptr)
 {
     initialize(filename);
 }
@@ -20,25 +19,44 @@ FileReader::~FileReader()
 {
     close();
     delete file;
+    delete validator;
 }
 
 bool FileReader::initialize(const QString &filename)
 {
-    validator = new FileValidator(filename);
+    validator = new (std::nothrow) FileValidator(filename);
+    if (!validator)
+    {
+        qWarning() << "Failed to allocate memory for FileValidator";
+        return false;
+    }
 
     if (validator->validateFile() != FileValidator::ValidationError::None)
     {
         qWarning() << "Failed to validate:" << file->errorString();
         validator->close();
+        delete validator;
+        validator = nullptr;
         return false;
     }
     validator->close();
 
-    file = new QFile(filename);
+    file = new (std::nothrow) QFile(filename);
+    if (!file)
+    {
+        qWarning() << "Failed to allocate memory for QFile";
+        delete validator;
+        validator = nullptr;
+        return false;
+    }
 
     if (!file->open(QIODevice::ReadOnly))
     {
         qWarning() << "Failed to open file for reading:" << file->errorString();
+        delete file;
+        file = nullptr;
+        delete validator;
+        validator = nullptr;
         return false;
     }
 
@@ -62,6 +80,7 @@ bool FileReader::readSettings(QVector<device::DevicePSDSettings> &settings)
     in.skipRawData(10);
 
     uint16_t settings_size = validator->settingsNumber();
+    settings.reserve(settings_size);
 
     for (uint16_t index = 0; index < settings_size; ++index)
     {
@@ -70,17 +89,18 @@ bool FileReader::readSettings(QVector<device::DevicePSDSettings> &settings)
         settings.append(settings_temp);
     }
 
-    file->seek(10 + (settings_size * 46) + 16); // 10 - 64 bits for signature + 16 bist for settings size
+    file->seek(10 + (settings_size * 46) + 16); // 10 - 64 bits for signature + 16 bits for settings size
                                                 // (settings_size * 46) settings offset
-                                                // 16 - 128 bits md 5 hash
+                                                // 16 - 128 bits MD5 hash
 
     return true;
 }
 
-bool FileReader::readWaveforms(QVector<device::WaveformPacket> &waveform)
+bool FileReader::readWaveforms(QVector<device::WaveformPacket> &waveforms)
 {
     auto error = checkErrors();
-    if (error != FileValidator::ValidationError::None && error != FileValidator::ValidationError::MalformedWaveformPacket)
+    if (error != FileValidator::ValidationError::None &&
+        error != FileValidator::ValidationError::MalformedWaveformPacket)
     {
         return false;
     }
@@ -92,6 +112,7 @@ bool FileReader::readWaveforms(QVector<device::WaveformPacket> &waveform)
     }
 
     uint32_t valid_packages = validator->validPacketNumber();
+    waveforms.reserve(valid_packages);
 
     for (uint32_t index = 0; index < valid_packages; ++index)
     {
@@ -99,20 +120,27 @@ bool FileReader::readWaveforms(QVector<device::WaveformPacket> &waveform)
         QDataStream in(file);
 
         buffer.resize(4);
-        in.readRawData(buffer.data(), 4);
+        if (in.readRawData(buffer.data(), 4) != 4)
+        {
+            qWarning() << "Failed to read waveform prefix";
+            return false;
+        }
 
         device::WaveformPacket waveform_temp;
         in >> waveform_temp;
 
         buffer.resize(4);
-        in.readRawData(buffer.data(), 4);
+        if (in.readRawData(buffer.data(), 4) != 4)
+        {
+            qWarning() << "Failed to read waveform postfix";
+            return false;
+        }
 
-        waveform.append(waveform_temp);
+        waveforms.append(waveform_temp);
     }
 
     return true;
 }
-
 
 FileValidator::ValidationError FileReader::checkErrors()
 {
@@ -126,7 +154,7 @@ FileValidator::ValidationError FileReader::checkErrors()
 
 void FileReader::close()
 {
-    if (file->isOpen())
+    if (file && file->isOpen())
     {
         file->close();
     }

@@ -1,30 +1,31 @@
 #include "file_writer.hpp"
 #include "validation_defines.hpp"
 
-#include <QByteArray>
 #include <QDataStream>
 #include <QCryptographicHash>
+#include <QDebug>
+#include <limits>
 
 
-FileWriter::FileWriter(QObject *parent) : QObject(parent)
+FileWriter::FileWriter(QObject *parent) : QObject(parent), file(nullptr)
 {
     initialize();
 }
 
-FileWriter::FileWriter(const QString &filename, QObject *parent) : QObject(parent)
+FileWriter::FileWriter(const QString &filename, QObject *parent) : QObject(parent), file(nullptr)
 {
     initialize(filename);
 }
 
-
 FileWriter::~FileWriter()
 {
     close();
+    delete file;
 }
 
 void FileWriter::write(const QVector<device::DevicePSDSettings> &settings_array)
 {
-    if (!file->isOpen())
+    if (!file || !file->isOpen())
     {
         qWarning() << "File is not open for writing.";
         return;
@@ -51,10 +52,9 @@ void FileWriter::write(const QVector<device::DevicePSDSettings> &settings_array)
     file->write(hash);
 }
 
-
 void FileWriter::write(const QVector<device::WaveformPacket> &waveform_array)
 {
-    if (!file->isOpen())
+    if (!file || !file->isOpen())
     {
         qWarning() << "File is not open for writing.";
         return;
@@ -67,7 +67,7 @@ void FileWriter::write(const QVector<device::WaveformPacket> &waveform_array)
 
         if (waveform.values.size() > std::numeric_limits<quint32>::max())
         {
-            qWarning() << "Invalid settings array size.";
+            qWarning() << "Invalid waveform packet size.";
             return;
         }
         out.writeRawData(default_body_prefix, 4);
@@ -76,16 +76,13 @@ void FileWriter::write(const QVector<device::WaveformPacket> &waveform_array)
 
         out.writeRawData(default_body_prefix, 4);
 
-        //QByteArray hash = QCryptographicHash::hash(buffer, QCryptographicHash::Sha256);
-
         file->write(buffer);
-        //file->write(hash);
     }
 }
 
 void FileWriter::close()
 {
-    if (file->isOpen())
+    if (file && file->isOpen())
     {
         file->close();
     }
@@ -93,7 +90,7 @@ void FileWriter::close()
 
 QString FileWriter::filename()
 {
-    if (file->exists())
+    if (file && file->exists())
     {
         return file->fileName();
     }
@@ -103,28 +100,29 @@ QString FileWriter::filename()
 
 bool FileWriter::initialize(QString filename)
 {
-    if (filename == "")
+    if (filename.isEmpty())
     {
-        filename = default_filename.arg(QDateTime::currentDateTime()
-                                            .toString(default_datetime),
-                                        "test");
+        filename = default_filename.arg(QDateTime::currentDateTime().toString(default_datetime), "test");
     }
 
-    file = new QFile(filename);
+    file = new (std::nothrow) QFile(filename);
+    if (!file)
+    {
+        qWarning() << "Failed to allocate memory for QFile.";
+        return false;
+    }
 
     if (!file->open(QIODevice::WriteOnly))
     {
         qWarning() << "Failed to open file for writing:" << file->errorString();
+        delete file;
+        file = nullptr;
         return false;
     }
-    QString signatureString = default_signature.arg(version_major,
-                                                    version_minor,
-                                                    version_patch);
 
+    QString signatureString = default_signature.arg(version_major, version_minor, version_patch);
     QByteArray signature = QByteArray::fromHex(signatureString.toUtf8());
     file->write(signature);
 
     return true;
 }
-
-

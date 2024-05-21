@@ -6,6 +6,7 @@
 #include <QCryptographicHash>
 #include <QDebug>
 
+
 FileValidator::FileValidator(QObject *parent)
     : QObject(parent), file(nullptr), error(ValidationError::None), settings_number(0), valid_packets(0)
 {}
